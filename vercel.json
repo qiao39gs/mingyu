@@ -1,0 +1,15 @@
+{
+  "routes": [
+    {
+      "src": "/mingyu-runtime-config.js",
+      "dest": "/api/runtime-config"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/.*",
+      "dest": "/index.html"
+    }
+  ]
+}

@@ -10,7 +10,7 @@ import {
   DEFAULT_MAX_REQUEST_BODY_BYTES,
   readLimitedRequestText,
   RequestBodyTooLargeError,
-} from '../http/request-body';
+} from '../http/request-body.js';
 
 const DEFAULT_BASE_URL = 'https://api.deepseek.com/v1';
 const DEFAULT_MODEL = 'deepseek-chat';
