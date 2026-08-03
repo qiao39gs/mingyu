@@ -292,6 +292,50 @@ test('AI 代理不应向其他兼容接口发送 DeepSeek 专用参数', async (
   assert.equal(body.thinking, undefined);
 });
 
+test('AI 多轮对话应明确要求回答最后一条追问', async (t) => {
+  const originalFetch = globalThis.fetch;
+  let upstreamBody = '';
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  globalThis.fetch = (async (_input, init) => {
+    upstreamBody = typeof init?.body === 'string' ? init.body : '';
+    return new Response('data: {"choices":[{"delta":{"content":"ok"}}]}\n\ndata: [DONE]\n\n');
+  }) as typeof fetch;
+
+  const response = await handleAiAnalyze(
+    new Request('https://example.com/api/v1/ai/analyze', {
+      method: 'POST',
+      body: JSON.stringify({
+        messages: [
+          { role: 'user', content: '完整排盘资料和初始问题' },
+          { role: 'assistant', content: '首轮回答' },
+          { role: 'user', content: '请只解释刚才提到的事业风险' },
+        ],
+      }),
+    }),
+    {
+      AI_API_KEY: 'test-key',
+      AI_BASE_URL: 'https://example.com/v1',
+      AI_MODEL: 'compatible-model',
+      AI_BUILTIN_ENABLED: 'true',
+    },
+  );
+
+  await response.text();
+  const body = JSON.parse(upstreamBody) as {
+    messages: Array<{ role: string; content: string }>;
+  };
+  assert.match(body.messages[0]?.content ?? '', /最后一条用户消息是当前必须回答的追问/);
+  assert.match(body.messages[0]?.content ?? '', /不要重复首轮完整解读/);
+  assert.deepEqual(body.messages.slice(1), [
+    { role: 'user', content: '完整排盘资料和初始问题' },
+    { role: 'assistant', content: '首轮回答' },
+    { role: 'user', content: '请只解释刚才提到的事业风险' },
+  ]);
+});
+
 test('AI 代理应允许多轮消息中单条内容超过 20000 字符并完整转发', async (t) => {
   const originalFetch = globalThis.fetch;
   const longMessage = '测'.repeat(25000);
