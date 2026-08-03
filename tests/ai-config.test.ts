@@ -226,6 +226,72 @@ test('AI 代理应允许单条 prompt 超过 20000 字符并完整转发', async
   assert.equal(body.messages[1]?.content, longPrompt);
 });
 
+test('AI 代理应关闭上游思考模式以确保返回最终答案', async (t) => {
+  const originalFetch = globalThis.fetch;
+  let upstreamBody = '';
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  globalThis.fetch = (async (_input, init) => {
+    upstreamBody = typeof init?.body === 'string' ? init.body : '';
+    return new Response('data: {"choices":[{"delta":{"content":"ok"}}]}\n\ndata: [DONE]\n\n', {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream; charset=utf-8' },
+    });
+  }) as typeof fetch;
+
+  const response = await handleAiAnalyze(
+    new Request('https://example.com/api/v1/ai/analyze', {
+      method: 'POST',
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: '测试' }],
+        aiConfig: { mode: 'builtin' },
+      }),
+    }),
+    {
+      AI_API_KEY: 'test-key',
+      AI_BASE_URL: 'https://api.deepseek.com/v1',
+      AI_MODEL: 'deepseek-v4-flash',
+      AI_BUILTIN_ENABLED: 'true',
+    },
+  );
+
+  await response.text();
+  const body = JSON.parse(upstreamBody) as { thinking?: { type?: string } };
+  assert.deepEqual(body.thinking, { type: 'disabled' });
+});
+
+test('AI 代理不应向其他兼容接口发送 DeepSeek 专用参数', async (t) => {
+  const originalFetch = globalThis.fetch;
+  let upstreamBody = '';
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  globalThis.fetch = (async (_input, init) => {
+    upstreamBody = typeof init?.body === 'string' ? init.body : '';
+    return new Response('data: {"choices":[{"delta":{"content":"ok"}}]}\n\ndata: [DONE]\n\n');
+  }) as typeof fetch;
+
+  const response = await handleAiAnalyze(
+    new Request('https://example.com/api/v1/ai/analyze', {
+      method: 'POST',
+      body: JSON.stringify({ messages: [{ role: 'user', content: '测试' }] }),
+    }),
+    {
+      AI_API_KEY: 'test-key',
+      AI_BASE_URL: 'https://example.com/v1',
+      AI_MODEL: 'compatible-model',
+      AI_BUILTIN_ENABLED: 'true',
+    },
+  );
+
+  await response.text();
+  const body = JSON.parse(upstreamBody) as { thinking?: unknown };
+  assert.equal(body.thinking, undefined);
+});
+
 test('AI 代理应允许多轮消息中单条内容超过 20000 字符并完整转发', async (t) => {
   const originalFetch = globalThis.fetch;
   const longMessage = '测'.repeat(25000);

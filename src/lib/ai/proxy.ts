@@ -138,6 +138,7 @@ export async function handleAiAnalyze(request: Request, env?: AiEnv): Promise<Re
     body: JSON.stringify({
       model: provider.model,
       stream: true,
+      ...(isDeepSeekApi(provider.baseUrl) ? { thinking: { type: 'disabled' } } : {}),
       max_tokens: 4096,
       temperature: 0.7,
       messages: [
@@ -379,6 +380,14 @@ function resolveAiProvider(
 function isBuiltinAiEnabled(env?: AiEnv): boolean {
   const enabled = env?.AI_BUILTIN_ENABLED ?? env?.AI_DEFAULT_ENABLED;
   return enabled === 'true';
+}
+
+function isDeepSeekApi(baseUrl: string): boolean {
+  try {
+    return new URL(baseUrl).hostname.toLowerCase() === 'api.deepseek.com';
+  } catch {
+    return false;
+  }
 }
 
 function normalizeCustomAiBaseUrl(value: string): { baseUrl: string } | { error: Response } {
