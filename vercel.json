@@ -5,6 +5,14 @@
       "dest": "/api/runtime-config"
     },
     {
+      "src": "/api/v1/ai/analyze",
+      "dest": "/api/v1/ai/analyze"
+    },
+    {
+      "src": "/api/v1/ai/models",
+      "dest": "/api/v1/ai/models"
+    },
+    {
       "handle": "filesystem"
     },
     {
